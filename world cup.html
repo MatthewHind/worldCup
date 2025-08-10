@@ -35,11 +35,7 @@
             border-radius: 0.5rem; /* Rounded corners for popups */
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         }
-        .stadium-info {
-            max-height: 300px; /* Max height for scrollable match list */
-            overflow-y: auto; /* Enable vertical scrolling */
-            padding-right: 0.5rem; /* Padding for scrollbar */
-        }
+        /* REMOVED: max-height and overflow-y: auto from .stadium-info to allow content to expand */
         .match-list-item {
             padding: 0.6rem 0;
             border-bottom: 1px solid #e5e7eb; /* Light grey border */
@@ -152,7 +148,7 @@
             border: 1px solid #E5E7EB; /* gray-200 */
             border-top: none;
             border-radius: 0 0 0.75rem 0.75rem; /* More rounded bottom corners */
-            padding: 2rem; /* More padding */
+            padding: 2rem; /* More padding, now consistent with new structure */
             box-shadow: 0 5px 15px rgba(0,0,0,0.08); /* Soft shadow */
         }
 
@@ -263,21 +259,21 @@
     </style>
 </head>
 <body class="bg-gray-100 font-sans p-4 md:p-8">
-    <div class="max-w-7xl mx-auto bg-white shadow-xl rounded-lg p-6 md:p-8 border border-gray-200">
-        <h1 class="text-4xl md:text-5xl font-bold text-center text-gray-800 mb-8 pb-2 border-b-2 border-blue-500">
+    <div class="max-w-7xl mx-auto bg-white shadow-xl rounded-lg py-6 md:py-8 px-4 md:px-8 border border-gray-200">
+        <h1 class="text-4xl md:text-5xl font-bold text-center text-gray-800 mb-8 pb-2 border-b-2 border-blue-500 px-4">
             <span class="text-gradient">World Cup 2026 Trip Planner</span> ⚽
         </h1>
 
         <!-- Tabs Navigation -->
-        <div class="tabs-container mb-6">
+        <div class="tabs-container mb-6 px-4">
             <div role="tablist" class="flex border-b border-gray-200">
-                <button role="tab" id="map-tab" class="tab-button active" onclick="showTab('map-content')">Map & Filters</button>
-                <button role="tab" id="city-guide-tab" class="tab-button" onclick="showTab('city-guide-content')">City Guides</button>
-                <button role="tab" id="links-tab" class="tab-button" onclick="showTab('useful-links-content')">Useful Links</button>
+                <button role="tab" id="map-tab" class="tab-button active">Map & Filters</button>
+                <button role="tab" id="city-guide-tab" class="tab-button">City Guides</button>
+                <button role="tab" id="links-tab" class="tab-button">Useful Links</button>
             </div>
 
             <!-- Tab Content: Map & Filters -->
-            <div id="map-content" class="tab-content active pt-4">
+            <div id="map-content" class="tab-content active px-4 pt-4">
                 <!-- Filters Section -->
                 <div class="mb-6 p-4 bg-gray-50 rounded-lg shadow-inner">
                     <div class="flex flex-col md:flex-row md:items-start md:space-x-6 space-y-4 md:space-y-0 justify-center">
@@ -342,7 +338,7 @@
             </div>
 
             <!-- Tab Content: City Guides -->
-            <div id="city-guide-content" class="tab-content pt-4 hidden">
+            <div id="city-guide-content" class="tab-content px-4 pt-4 hidden">
                 <h2 class="text-2xl font-bold text-gray-800 mb-4">Explore Host Cities</h2>
                 <div class="mb-6">
                     <label for="citySelect" class="block text-gray-700 text-sm font-bold mb-2">Select a City:</label>
@@ -368,7 +364,7 @@
             </div>
 
             <!-- Tab Content: Useful Links -->
-            <div id="useful-links-content" class="tab-content pt-4 hidden">
+            <div id="useful-links-content" class="tab-content px-4 pt-4 hidden">
                 <h2 class="text-2xl font-bold text-gray-800 mb-4">Useful Travel Resources</h2>
 
                 <h3 class="text-xl font-semibold text-gray-800 mb-3">Flight Planning:</h3>
@@ -881,10 +877,18 @@
             });
 
             // Show the selected tab content
-            document.getElementById(tabId).classList.remove('hidden');
+            const targetContent = document.getElementById(tabId);
+            if (targetContent) { // Added null check for robustness
+                targetContent.classList.remove('hidden');
+            }
 
             // Add 'active' class to the clicked button
-            document.getElementById(tabId.replace('-content', '-tab')).classList.add('active');
+            const targetButtonId = tabId.replace('-content', '-tab');
+            const targetButton = document.getElementById(targetButtonId);
+            if (targetButton) { // Added null check for robustness
+                targetButton.classList.add('active');
+            }
+
 
             // Special handling for the map tab to ensure it renders correctly when shown
             if (tabId === 'map-content') {
@@ -984,7 +988,7 @@
                     <p class="mb-2">Capacity: ${stadium.capacity.toLocaleString()}</p>
                     <p class="mb-4">Number of Games (filtered): ${stadiumMatches.length}</p>
                     <h3 class="text-xl font-semibold text-gray-800 mb-2">Match Schedule:</h3>
-                    <div id="matchList" class="stadium-info max-h-60 overflow-y-auto pr-2">
+                    <div id="matchList" class="pr-2">
             `;
 
             if (stadiumMatches.length > 0) {
@@ -1118,7 +1122,7 @@
 
             let combinedMatchesHtml = '';
             if (allGamesInSelectedStadiums.length > 0) {
-                combinedMatchesHtml += '<h3 class="text-xl font-semibold text-gray-800 mb-2 mt-6">All Games at Selected Stadiums (Filtered):</h3><div class="stadium-info max-h-60 overflow-y-auto pr-2">';
+                combinedMatchesHtml += '<h3 class="text-xl font-semibold text-gray-800 mb-2 mt-6">All Games at Selected Stadiums (Filtered):</h3><div class="pr-2">'; // REMOVED: stadium-info class
                 allGamesInSelectedStadiums.forEach(match => {
                     const matchStadium = stadiums.find(s => s.id === match.stadiumId);
                     combinedMatchesHtml += `
@@ -1343,7 +1347,7 @@
 
             if (!selectedCityName) {
                 cityInfoDisplay.classList.add('hidden');
-                getItineraryBtn.classList.add('hidden'); // Hide button if no city selected
+                // Removed redundant getItineraryBtn.classList.add('hidden') as it's handled below dynamically
                 itineraryOutput.classList.add('hidden'); // Hide itinerary output
                 itineraryOutput.innerHTML = ''; // Clear previous itinerary
                 cityInfoDisplay.innerHTML = '';
@@ -1486,28 +1490,33 @@
         }
 
 
-        // Event listeners
-        document.getElementById('applyFilter').addEventListener('click', applyFilters);
-        document.getElementById('selectAllRounds').addEventListener('click', () => toggleAllRounds(true));
-        document.getElementById('deselectAllRounds').addEventListener('click', () => toggleAllRounds(false));
-        document.getElementById('clearStadiumSelection').addEventListener('click', clearStadiumSelection);
+        // Initial setup and event listeners attached after DOMContentLoaded
+        document.addEventListener('DOMContentLoaded', (event) => {
+            // Event listeners for tabs
+            document.getElementById('map-tab').addEventListener('click', () => showTab('map-content'));
+            document.getElementById('city-guide-tab').addEventListener('click', () => showTab('city-guide-content'));
+            document.getElementById('links-tab').addEventListener('click', () => showTab('useful-links-content'));
 
-        // City Guides event listener
-        document.getElementById('citySelect').addEventListener('change', displayCityInfo);
+            // Existing event listeners (ensure they are inside DOMContentLoaded if they access DOM elements)
+            document.getElementById('applyFilter').addEventListener('click', applyFilters);
+            document.getElementById('selectAllRounds').addEventListener('click', () => toggleAllRounds(true));
+            document.getElementById('deselectAllRounds').addEventListener('click', () => toggleAllRounds(false));
+            document.getElementById('clearStadiumSelection').addEventListener('click', clearStadiumSelection);
+            document.getElementById('citySelect').addEventListener('change', displayCityInfo);
 
+            // Initial setup and render functions
+            populateRoundFilter();
+            setTournamentDateHelper(); // Set the helper text on load
+            applyFilters(); // Initial render of markers with all matches and rounds
 
-        // Initial setup and render functions
-        populateRoundFilter();
-        setTournamentDateHelper(); // Set the helper text on load
-        applyFilters(); // Initial render of markers with all matches and rounds
+            // Call applyMapInteractivity once initially and then on window resize
+            applyMapInteractivity();
+            window.addEventListener('resize', applyMapInteractivity);
 
-        // Call applyMapInteractivity once initially and then on window resize
-        applyMapInteractivity();
-        window.addEventListener('resize', applyMapInteractivity);
-
-        // Set initial active tab to 'map-content'
-        showTab('map-content');
-        populateCitySelect(); // Populate the city dropdown on load
+            // Set initial active tab to 'map-content'
+            showTab('map-content');
+            populateCitySelect(); // Populate the city dropdown on load
+        });
     </script>
 </body>
 </html>
