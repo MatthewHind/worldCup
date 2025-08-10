@@ -407,20 +407,59 @@
     <script>
         // Initialize Leaflet map
         const map = L.map('map', {
-            dragging: false,        // Disable map dragging
-            zoomControl: false,     // Disable zoom control buttons
-            scrollWheelZoom: false, // Disable scroll wheel zoom
-            doubleClickZoom: false, // Disable double click zoom
-            boxZoom: false,         // Disable box zoom
-            keyboard: false,        // Disable keyboard navigation
-            tap: false,             // Disable tap on mobile devices for dragging
-            touchZoom: false,       // Disable touch zoom
+            // Initialize all interaction options to false by default for desktop view
+            dragging: false,
+            zoomControl: false,
+            scrollWheelZoom: false,
+            doubleClickZoom: false,
+            boxZoom: false,
+            keyboard: false,
+            touchZoom: false,
         }).setView([39.8283, -98.5795], 4); // Centered on the USA
 
         // Add OpenStreetMap tiles
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         }).addTo(map);
+
+        let zoomControlInstance = null; // To keep track of the zoom control instance
+
+        /**
+         * Function to apply or remove map interactivity based on the current screen size.
+         * The map will be interactive on screens smaller than 768px (mobile/tablet portrait).
+         */
+        function applyMapInteractivity() {
+            const isMobile = window.innerWidth < 768; // Defines 'mobile' based on Tailwind's 'md' breakpoint
+
+            if (isMobile) {
+                // Enable interactivity features for mobile
+                map.dragging.enable();
+                map.scrollWheelZoom.enable();
+                map.doubleClickZoom.enable();
+                map.boxZoom.enable();
+                map.keyboard.enable();
+                map.touchZoom.enable();
+
+                // Add zoom control if it's not already present
+                if (!zoomControlInstance) {
+                    zoomControlInstance = L.control.zoom({ position: 'topright' }).addTo(map);
+                }
+            } else {
+                // Disable interactivity features for desktop
+                map.dragging.disable();
+                map.scrollWheelZoom.disable();
+                map.doubleClickZoom.disable();
+                map.boxZoom.disable();
+                map.keyboard.disable();
+                map.touchZoom.disable();
+
+                // Remove zoom control if it exists
+                if (zoomControlInstance) {
+                    map.removeControl(zoomControlInstance);
+                    zoomControlInstance = null; // Clear the reference
+                }
+            }
+        }
 
         // Define stadium data (unchanged)
         const stadiums = [
@@ -1461,6 +1500,10 @@
         populateRoundFilter();
         setTournamentDateHelper(); // Set the helper text on load
         applyFilters(); // Initial render of markers with all matches and rounds
+
+        // Call applyMapInteractivity once initially and then on window resize
+        applyMapInteractivity();
+        window.addEventListener('resize', applyMapInteractivity);
 
         // Set initial active tab to 'map-content'
         showTab('map-content');
