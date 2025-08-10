@@ -1,0 +1,1470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2026 World Cup Trip Planner</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <!-- Google Fonts: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* Global Styles */
+        body {
+            font-family: 'Inter', sans-serif;
+            /* Background pattern for a sporty feel */
+            background-color: #f0f4f8; /* Light blue-gray fallback */
+            background-image: url('https://placehold.co/1920x1080/add8e6/4682b4/png?text=Football+Pattern'); /* Placeholder for a football/World Cup pattern */
+            background-size: cover;
+            background-attachment: fixed;
+            background-position: center;
+        }
+
+        /* Custom styles for Leaflet map */
+        #map {
+            height: 600px; /* Set a fixed height for the map container */
+            width: 100%;
+            border-radius: 0.75rem; /* More rounded corners for the map */
+            box-shadow: 0 10px 15px rgba(0,0,0,0.1); /* Stronger shadow for the map */
+            z-index: 0; /* Ensure map is behind other elements if any overlap */
+            border: 2px solid #D1D5DB; /* Light gray border */
+        }
+        .leaflet-popup-content-wrapper, .leaflet-popup-tip {
+            border-radius: 0.5rem; /* Rounded corners for popups */
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .stadium-info {
+            max-height: 300px; /* Max height for scrollable match list */
+            overflow-y: auto; /* Enable vertical scrolling */
+            padding-right: 0.5rem; /* Padding for scrollbar */
+        }
+        .match-list-item {
+            padding: 0.6rem 0;
+            border-bottom: 1px solid #e5e7eb; /* Light grey border */
+        }
+        .match-list-item:last-child {
+            border-bottom: none;
+        }
+
+        /* Custom marker styling */
+        .custom-div-icon {
+            background-color: transparent; /* Background handled by inner div */
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3); /* More pronounced shadow */
+            font-weight: bold;
+            color: white;
+            transition: all 0.2s ease-in-out;
+            border: 3px solid rgba(255,255,255,0.8); /* White border around the colored circle */
+            transform: scale(1); /* Initial scale for animation */
+        }
+        .custom-div-icon:hover {
+            transform: scale(1.1); /* Pop on hover */
+        }
+        .custom-div-icon div {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.95rem; /* Slightly larger text */
+            box-sizing: border-box; /* Include padding and border in the element's total width and height */
+            text-shadow: 0 1px 2px rgba(0,0,0,0.3); /* Subtle text shadow */
+        }
+
+        /* Style for selected markers */
+        .custom-div-icon.selected div {
+            border: 3px solid #FFD700; /* Gold border for selected markers */
+            box-shadow: 0 0 0 4px rgba(255, 215, 0, 0.6); /* Outer glow for selection */
+        }
+
+        /* Style for travel time labels on map */
+        .travel-time-label {
+            background-color: rgba(255, 255, 255, 0.9); /* More opaque white background */
+            padding: 3px 8px; /* Slightly more padding */
+            border-radius: 6px; /* More rounded */
+            font-size: 0.8rem; /* text-xs */
+            font-weight: bold;
+            color: #374151; /* gray-700 */
+            white-space: nowrap; /* Prevent text wrapping */
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            border: 1px solid #D1D5DB;
+        }
+
+        /* Multiselect specific styling */
+        select[multiple] {
+            min-height: 100px; /* Ensure visibility for multiple options */
+        }
+
+        /* Travel message styling */
+        .travel-message {
+            background-color: #fefcbf; /* Lighter yellow for alert */
+            color: #b45309; /* Darker orange for text */
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin-top: 1.5rem;
+            text-align: center;
+            font-weight: 600;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        /* Tab specific styling */
+        .tabs-container {
+            margin-bottom: 1.5rem;
+        }
+        .tab-button {
+            padding: 0.85rem 1.75rem; /* More generous padding */
+            font-weight: 700; /* Bolder font */
+            color: #6B7280; /* Darker gray default */
+            border-top-left-radius: 0.5rem; /* More rounded */
+            border-top-right-radius: 0.5rem;
+            border: 1px solid #E5E7EB;
+            border-bottom: none;
+            transition: all 0.3s ease-in-out; /* Smoother transition */
+            cursor: pointer;
+            background-color: #F9FAFB; /* Light background */
+            position: relative;
+            top: 1px; /* Overlap border slightly */
+        }
+        .tab-button:hover {
+            background-color: #EBF4FF; /* Light blue on hover */
+            color: #1F2937; /* Darker text */
+            transform: translateY(-2px); /* Lift effect */
+            z-index: 1; /* Bring to front on hover */
+            box-shadow: 0 -2px 5px rgba(0,0,0,0.05);
+        }
+        .tab-button.active {
+            background-color: #fff;
+            border-color: #E5E7EB;
+            border-bottom-color: transparent;
+            color: #1F2937;
+            transform: translateY(0);
+            z-index: 2; /* Active tab always on top */
+            box-shadow: none; /* No shadow for active tab top */
+        }
+        .tab-content {
+            background-color: #fff;
+            border: 1px solid #E5E7EB; /* gray-200 */
+            border-top: none;
+            border-radius: 0 0 0.75rem 0.75rem; /* More rounded bottom corners */
+            padding: 2rem; /* More padding */
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08); /* Soft shadow */
+        }
+
+        .city-info-section h3 {
+            font-weight: 700; /* Bolder */
+            margin-top: 1.25rem;
+            margin-bottom: 0.75rem;
+            color: #2563EB; /* A nice blue for headings */
+        }
+
+        .city-info-section ul {
+            list-style: disc;
+            padding-left: 1.5rem;
+            margin-bottom: 1rem;
+            color: #4B5563; /* Darker gray for lists */
+        }
+        .city-info-section ul li {
+            margin-bottom: 0.35rem;
+        }
+
+        /* Button Enhancements (General) */
+        .btn-primary {
+            background-image: linear-gradient(to right, #3B82F6 0%, #2563EB 100%); /* Blue gradient */
+            color: white;
+            font-weight: 700;
+            padding: 0.75rem 1.75rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: all 0.3s ease-in-out;
+            border: none;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+        .btn-primary:hover {
+            background-image: linear-gradient(to right, #2563EB 0%, #1D4ED8 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 10px rgba(0,0,0,0.15);
+        }
+
+        .btn-secondary {
+            background-color: #F3F4F6;
+            color: #374151;
+            font-weight: 600;
+            padding: 0.5rem 1.25rem;
+            border-radius: 0.375rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            transition: all 0.3s ease-in-out;
+            border: 1px solid #D1D5DB;
+            cursor: pointer;
+        }
+        .btn-secondary:hover {
+            background-color: #E5E7EB;
+            transform: translateY(-1px);
+            box-shadow: 0 3px 6px rgba(0,0,0,0.08);
+        }
+
+        .btn-danger {
+            background-image: linear-gradient(to right, #EF4444 0%, #DC2626 100%); /* Red gradient */
+            color: white;
+            font-weight: 700;
+            padding: 0.75rem 1.75rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: all 0.3s ease-in-out;
+            border: none;
+            cursor: pointer;
+        }
+        .btn-danger:hover {
+            background-image: linear-gradient(to right, #DC2626 0%, #B91C1C 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 10px rgba(0,0,0,0.15);
+        }
+
+        /* Itinerary Button specific style */
+        #getItineraryBtn {
+            background-image: linear-gradient(to right, #A855F7 0%, #9333EA 100%); /* Purple gradient */
+        }
+        #getItineraryBtn:hover {
+            background-image: linear-gradient(to right, #9333EA 0%, #7E22CE 100%);
+        }
+
+        /* Spinner styling */
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            border-left-color: #A855F7; /* Purple to match itinerary button */
+            border-radius: 50%;
+            width: 28px; /* Slightly larger spinner */
+            height: 28px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            vertical-align: middle;
+            margin-left: 15px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .text-gradient {
+            background: linear-gradient(to right, #3B82F6, #10B981); /* Example gradient for text */
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+    </style>
+</head>
+<body class="bg-gray-100 font-sans p-4 md:p-8">
+    <div class="max-w-7xl mx-auto bg-white shadow-xl rounded-lg p-6 md:p-8 border border-gray-200">
+        <h1 class="text-4xl md:text-5xl font-bold text-center text-gray-800 mb-8 pb-2 border-b-2 border-blue-500">
+            <span class="text-gradient">World Cup 2026 Trip Planner</span> ⚽
+        </h1>
+
+        <!-- Tabs Navigation -->
+        <div class="tabs-container mb-6">
+            <div role="tablist" class="flex border-b border-gray-200">
+                <button role="tab" id="map-tab" class="tab-button active" onclick="showTab('map-content')">Map & Filters</button>
+                <button role="tab" id="city-guide-tab" class="tab-button" onclick="showTab('city-guide-content')">City Guides</button>
+                <button role="tab" id="links-tab" class="tab-button" onclick="showTab('useful-links-content')">Useful Links</button>
+            </div>
+
+            <!-- Tab Content: Map & Filters -->
+            <div id="map-content" class="tab-content active pt-4">
+                <!-- Filters Section -->
+                <div class="mb-6 p-4 bg-gray-50 rounded-lg shadow-inner">
+                    <div class="flex flex-col md:flex-row md:items-start md:space-x-6 space-y-4 md:space-y-0 justify-center">
+                        <!-- Date Filter Section -->
+                        <div class="flex flex-col space-y-2 flex-shrink-0">
+                            <h2 class="text-lg font-semibold text-gray-800 text-center md:text-left mb-2">Date Filter</h2>
+                            <div class="flex flex-col sm:flex-row sm:space-x-4 space-y-2 sm:space-y-0">
+                                <div class="flex flex-col">
+                                    <label for="startDate" class="text-gray-700 text-sm mb-1">Start Date:</label>
+                                    <input type="date" id="startDate"
+                                        class="p-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-full">
+                                </div>
+                                <div class="flex flex-col">
+                                    <label for="endDate" class="text-gray-700 text-sm mb-1">End Date:</label>
+                                    <input type="date" id="endDate"
+                                        class="p-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-full">
+                                </div>
+                            </div>
+                            <p id="tournamentDateHelper" class="text-xs text-gray-600 mt-1 text-center md:text-left"></p>
+                        </div>
+
+                        <!-- Round Filter Section -->
+                        <div class="flex flex-col flex-grow max-w-md">
+                            <h2 class="text-lg font-semibold text-gray-800 text-center mb-2">Round Filter</h2>
+                            <select id="roundFilter" multiple size="5"
+                                    class="p-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-full">
+                                <!-- Options will be populated by JavaScript -->
+                            </select>
+                            <div class="flex justify-center space-x-2 mt-3">
+                                <button id="selectAllRounds"
+                                        class="btn-secondary">
+                                    Select All
+                                </button>
+                                <button id="deselectAllRounds"
+                                        class="btn-secondary">
+                                    Deselect All
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="flex flex-col sm:flex-row justify-center space-y-3 sm:space-y-0 sm:space-x-4 mt-6">
+                        <button id="applyFilter"
+                                class="btn-primary">
+                            Apply Filters
+                        </button>
+                        <button id="clearStadiumSelection"
+                                class="btn-danger">
+                            Clear Selected Stadiums
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Map Container -->
+                <div id="map" class="mb-8"></div>
+
+                <!-- Stadium Details / Travel Time Section -->
+                <div id="stadiumDetails" class="bg-gray-50 p-6 rounded-lg shadow-inner border border-gray-200 hidden">
+                    <!-- Content will be dynamically loaded here -->
+                </div>
+            </div>
+
+            <!-- Tab Content: City Guides -->
+            <div id="city-guide-content" class="tab-content pt-4 hidden">
+                <h2 class="text-2xl font-bold text-gray-800 mb-4">Explore Host Cities</h2>
+                <div class="mb-6">
+                    <label for="citySelect" class="block text-gray-700 text-sm font-bold mb-2">Select a City:</label>
+                    <select id="citySelect" class="block w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="">-- Select a City --</option>
+                        <!-- Options populated by JavaScript -->
+                    </select>
+                </div>
+                <div id="cityInfoDisplay" class="bg-gray-50 p-6 rounded-lg shadow-inner border border-gray-200 hidden">
+                    <!-- City info will be displayed here -->
+                    <!-- Placeholder for itinerary button and output -->
+                    <div class="flex flex-col items-center mt-4">
+                        <button id="getItineraryBtn"
+                                class="btn-primary hidden">
+                            Get Itinerary Suggestion ✨
+                        </button>
+                        <div id="loadingSpinner" class="spinner hidden mt-4"></div>
+                    </div>
+                    <div id="itineraryOutput" class="mt-4 p-4 bg-white rounded-md border border-gray-200 shadow-md hidden">
+                        <!-- AI-generated itinerary will be displayed here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab Content: Useful Links -->
+            <div id="useful-links-content" class="tab-content pt-4 hidden">
+                <h2 class="text-2xl font-bold text-gray-800 mb-4">Useful Travel Resources</h2>
+
+                <h3 class="text-xl font-semibold text-gray-800 mb-3">Flight Planning:</h3>
+                <p class="text-gray-700 mb-4">Click these links to open Google Flights with pre-filled search parameters. Remember to adjust dates, origins, and destinations for your specific trip!</p>
+                <ul class="list-disc list-inside space-y-2 mb-6 text-blue-600">
+                    <li><a href="https://www.google.com/flights?hl=en#flt=/m/02_286.._2026-06-11*./m/0k3_v.._2026-06-25;c:USD;e:1;sd:1;t:f;sp:2;qt:ALL" target="_blank" class="hover:underline">Flights to North America (General Search)</a></li>
+                    <li><a href="https://www.google.com/flights?hl=en#flt=LAX.JFK.2026-06-15*JFK.LAX.2026-06-20;c:USD;e:1;sd:1;t:f;sp:2;qt:ALL" target="_blank" class="hover:underline">Domestic North America Flights (Example: LA to NY)</a></li>
+                </ul>
+
+                <h3 class="text-xl font-semibold text-gray-800 mb-3">Visa & Entry Requirements:</h3>
+                <p class="text-gray-700 mb-4">Always check official government websites for the latest entry requirements based on your nationality.</p>
+                <ul class="list-disc list-inside space-y-2 mb-6 text-blue-600">
+                    <li><a href="https://travel.state.gov/content/travel/en/us-travel-info/visa-and-entry-requirements.html" target="_blank" class="hover:underline">USA Travel & Visa Information (Official)</a></li>
+                    <li><a href="https://www.canada.ca/en/immigration-refugees-citizenship/services/visit-canada/entry-requirements.html" target="_blank" class="hover:underline">Canada Travel & Visa Information (Official)</a></li>
+                    <li><a href="https://www.gob.mx/sre/acciones-y-programas/visa-to-travel-to-mexico" target="_blank" class="hover:underline">Mexico Travel & Visa Information (Official)</a></li>
+                </ul>
+
+                <h3 class="text-xl font-semibold text-gray-800 mb-3">Accommodation:</h3>
+                <ul class="list-disc list-inside space-y-2 mb-6 text-blue-600">
+                    <li><a href="https://www.booking.com/" target="_blank" class="hover:underline">Booking.com</a></li>
+                    <li><a href="https://www.airbnb.com/" target="_blank" class="hover:underline">Airbnb</a></li>
+                    <li><a href="https://www.vrbo.com/" target="_blank" class="hover:underline">Vrbo</a></li>
+                </ul>
+
+                <h3 class="text-xl font-semibold text-gray-800 mb-3">Official FIFA World Cup 2026 Resources:</h3>
+                <ul class="list-disc list-inside space-y-2 text-blue-600">
+                    <li><a href="https://www.fifa.com/fifaplus/en/tournaments/mens/worldcup/canadamexicousa2026" target="_blank" class="hover:underline">Official FIFA World Cup 2026 Website</a></li>
+                    <li><a href="https://www.fifa.com/fifaplus/en/tickets" target="_blank" class="hover:underline">FIFA Ticketing Information (Sign up for updates)</a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Leaflet JavaScript -->
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script>
+        // Initialize Leaflet map
+        const map = L.map('map', {
+            dragging: false,        // Disable map dragging
+            zoomControl: false,     // Disable zoom control buttons
+            scrollWheelZoom: false, // Disable scroll wheel zoom
+            doubleClickZoom: false, // Disable double click zoom
+            boxZoom: false,         // Disable box zoom
+            keyboard: false,        // Disable keyboard navigation
+            tap: false,             // Disable tap on mobile devices for dragging
+            touchZoom: false,       // Disable touch zoom
+        }).setView([39.8283, -98.5795], 4); // Centered on the USA
+
+        // Add OpenStreetMap tiles
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+
+        // Define stadium data (unchanged)
+        const stadiums = [
+            { id: 'bc_place', name: 'BC Place', city: 'Vancouver', country: 'Canada', capacity: 54500, lat: 49.2767, lon: -123.1119 },
+            { id: 'bmo_field', name: 'BMO Field', city: 'Toronto', country: 'Canada', capacity: 45736, lat: 43.6332, lon: -79.4186 },
+            { id: 'estadio_azteca', name: 'Estadio Azteca', city: 'Mexico City', country: 'Mexico', capacity: 87523, lat: 19.3028, lon: -99.1506 },
+            { id: 'estadio_akron', name: 'Estadio Akron', city: 'Guadalajara', country: 'Mexico', capacity: 49850, lat: 20.6277, lon: -103.4619 },
+            { id: 'estadio_bbva', name: 'Estadio BBVA', city: 'Monterrey', country: 'Mexico', capacity: 53500, lat: 25.6766, lon: -100.2464 },
+            { id: 'mercedes_benz', name: 'Mercedes-Benz Stadium', city: 'Atlanta', country: 'USA', capacity: 75000, lat: 33.7557, lon: -84.4009 },
+            { id: 'gillette_stadium', name: 'Gillette Stadium', city: 'Boston', country: 'USA', capacity: 70000, lat: 42.0909, lon: -71.2643 },
+            { id: 'att_stadium', name: 'AT&T Stadium', city: 'Dallas', country: 'USA', capacity: 105000, lat: 32.7478, lon: -97.0927 },
+            { id: 'nrg_stadium', name: 'NRG Stadium', city: 'Houston', country: 'USA', capacity: 80000, lat: 29.6847, lon: -95.4093 },
+            { id: 'arrowhead_stadium', name: 'Arrowhead Stadium', city: 'Kansas City', country: 'USA', capacity: 76640, lat: 39.0489, lon: -94.4839 },
+            { id: 'sofi_stadium', name: 'SoFi Stadium', city: 'Los Angeles', country: 'USA', capacity: 100240, lat: 33.9535, lon: -118.3391 },
+            { id: 'hard_rock_stadium', name: 'Hard Rock Stadium', city: 'Miami', country: 'USA', capacity: 67518, lat: 25.9579, lon: -80.2388 },
+            { id: 'metlife_stadium', name: 'MetLife Stadium', city: 'New York / New Jersey', country: 'USA', capacity: 87157, lat: 40.8136, lon: -74.0740 },
+            { id: 'lincoln_financial', name: 'Lincoln Financial Field', city: 'Philadelphia', country: 'USA', capacity: 69328, lat: 39.9008, lon: -75.1674 },
+            { id: 'levis_stadium', name: "Levi's Stadium", city: 'San Francisco Bay Area', country: 'USA', capacity: 75000, lat: 37.4042, lon: -121.9723 },
+            { id: 'lumen_field', name: 'Lumen Field', city: 'Seattle', country: 'USA', capacity: 72000, lat: 47.5952, lon: -122.3316 }
+        ];
+
+        // Define colors for each country (unchanged)
+        const countryColors = {
+            'Canada': '#EF4444', // Red for Canada
+            'Mexico': '#10B981', // Green for Mexico
+            'USA': '#3B82F6'     // Blue for USA
+        };
+
+        // Define match data (dates are Date objects) (unchanged)
+        const allMatches = [
+            // June 11, 2026 - Group Stage
+            { id: 'm01', date: new Date('2026-06-11T16:00:00'), time: '16:00', round: 'Group Stage', stadiumId: 'estadio_azteca' },
+            { id: 'm02', date: new Date('2026-06-11T13:00:00'), time: '13:00', round: 'Group Stage', stadiumId: 'estadio_akron' },
+            // June 12, 2026 - Group Stage
+            { id: 'm03', date: new Date('2026-06-12T19:00:00'), time: '19:00', round: 'Group Stage', stadiumId: 'bmo_field' },
+            { id: 'm04', date: new Date('2026-06-12T19:00:00'), time: '19:00', round: 'Group Stage', stadiumId: 'sofi_stadium' },
+            // June 13, 2026 - Group Stage
+            { id: 'm05', date: new Date('2026-06-13T13:00:00'), time: '13:00', round: 'Group Stage', stadiumId: 'gillette_stadium' },
+            { id: 'm06', date: new Date('2026-06-13T16:00:00'), time: '16:00', round: 'Group Stage', stadiumId: 'bc_place' },
+            { id: 'm07', date: new Date('2026-06-13T19:00:00'), time: '19:00', round: 'Group Stage', stadiumId: 'metlife_stadium' },
+            { id: 'm08', date: new Date('2026-06-13T22:00:00'), time: '22:00', round: 'Group Stage', stadiumId: 'levis_stadium' },
+            // June 14, 2026 - Group Stage
+            { id: 'm09', date: new Date('2026-06-14T13:00:00'), time: '13:00', round: 'Group Stage', stadiumId: 'lincoln_financial' },
+            { id: 'm10', date: new Date('2026-06-14T16:00:00'), time: '16:00', round: 'Group Stage', stadiumId: 'nrg_stadium' },
+            { id: 'm11', date: new Date('2026-06-14T19:00:00'), time: '19:00', round: 'Group Stage', stadiumId: 'att_stadium' },
+            { id: 'm12', date: new Date('2026-06-14T19:00:00'), time: '19:00', round: 'Group Stage', stadiumId: 'estadio_bbva' },
+            // June 15, 2026 - Group Stage
+            { id: 'm13', date: new Date('2026-06-15T13:00:00'), time: '13:00', round: 'Group Stage', stadiumId: 'hard_rock_stadium' },
+            { id: 'm14', date: new Date('2026-06-15T16:00:00'), time: '16:00', round: 'Group Stage', stadiumId: 'mercedes_benz' },
+            { id: 'm15', date: new Date('2026-06-15T19:00:00'), time: '19:00', round: 'Group Stage', stadiumId: 'sofi_stadium' },
+            { id: 'm16', date: new Date('2026-06-15T19:00:00'), time: '19:00', round: 'Group Stage', stadiumId: 'lumen_field' },
+            // June 16, 2026 - Group Stage
+            { id: 'm17', date: new Date('2026-06-16T13:00:00'), time: '13:00', round: 'Group Stage', stadiumId: 'metlife_stadium' },
+            { id: 'm18', date: new Date('2026-06-16T16:00:00'), time: '16:00', round: 'Group Stage', stadiumId: 'gillette_stadium' },
+            { id: 'm19', date: new Date('2026-06-16T19:00:00'), time: '19:00', round: 'Group Stage', stadiumId: 'arrowhead_stadium' },
+            { id: 'm20', date: new Date('2026-06-16T19:00:00'), time: '19:00', round: 'Group Stage', stadiumId: 'levis_stadium' },
+            // June 17, 2026 - Group Stage
+            { id: 'm21', date: new Date('2026-06-17T13:00:00'), time: '13:00', round: 'Group Stage', stadiumId: 'bmo_field' },
+            { id: 'm22', date: new Date('2026-06-17T16:00:00'), time: '16:00', round: 'Group Stage', stadiumId: 'att_stadium' },
+            { id: 'm23', date: new Date('2026-06-17T19:00:00'), time: '19:00', round: 'Group Stage', stadiumId: 'nrg_stadium' },
+            { id: 'm24', date: new Date('2026-06-17T19:00:00'), time: '19:00', round: 'Group Stage', stadiumId: 'estadio_azteca' },
+            // June 18, 2026 - Group Stage
+            { id: 'm25', date: new Date('2026-06-18T13:00:00'), time: '13:00', round: 'Group Stage', stadiumId: 'mercedes_benz' },
+            { id: 'm26', date: new Date('2026-06-18T16:00:00'), time: '16:00', round: 'Group Stage', stadiumId: 'sofi_stadium' },
+            { id: 'm27', date: new Date('2026-06-18T19:00:00'), time: '19:00', round: 'Group Stage', stadiumId: 'bc_place' },
+            { id: 'm28', date: new Date('2026-06-18T19:00:00'), time: '19:00', round: 'Group Stage', stadiumId: 'estadio_akron' },
+            // June 19, 2026 - Group Stage
+            { id: 'm29', date: new Date('2026-06-19T13:00:00'), time: '13:00', round: 'Group Stage', stadiumId: 'lincoln_financial' },
+            { id: 'm30', date: new Date('2026-06-19T16:00:00'), time: '16:00', round: 'Group Stage', stadiumId: 'gillette_stadium' },
+            { id: 'm31', date: new Date('2026-06-19T19:00:00'), time: '19:00', round: 'Group Stage', stadiumId: 'levis_stadium' },
+            { id: 'm32', date: new Date('2026-06-19T19:00:00'), time: '19:00', round: 'Group Stage', stadiumId: 'lumen_field' },
+            // June 20, 2026 - Group Stage
+            { id: 'm33', date: new Date('2026-06-20T13:00:00'), time: '13:00', round: 'Group Stage', stadiumId: 'bmo_field' },
+            { id: 'm34', date: new Date('2026-06-20T16:00:00'), time: '16:00', round: 'Group Stage', stadiumId: 'arrowhead_stadium' },
+            { id: 'm35', date: new Date('2026-06-20T19:00:00'), time: '19:00', round: 'Group Stage', stadiumId: 'nrg_stadium' },
+            { id: 'm36', date: new Date('2026-06-20T19:00:00'), time: '19:00', round: 'Group Stage', stadiumId: 'estadio_bbva' },
+            // June 21, 2026 - Group Stage
+            { id: 'm37', date: new Date('2026-06-21T13:00:00'), time: '13:00', round: 'Group Stage', stadiumId: 'hard_rock_stadium' },
+            { id: 'm38', date: new Date('2026-06-21T16:00:00'), time: '16:00', round: 'Group Stage', stadiumId: 'mercedes_benz' },
+            { id: 'm39', date: new Date('2026-06-21T19:00:00'), time: '19:00', round: 'Group Stage', stadiumId: 'sofi_stadium' },
+            { id: 'm40', date: new Date('2026-06-21T19:00:00'), time: '19:00', round: 'Group Stage', stadiumId: 'bc_place' },
+            // June 22, 2026 - Group Stage
+            { id: 'm41', date: new Date('2026-06-22T13:00:00'), time: '13:00', round: 'Group Stage', stadiumId: 'metlife_stadium' },
+            { id: 'm42', date: new Date('2026-06-22T16:00:00'), time: '16:00', round: 'Group Stage', stadiumId: 'lincoln_financial' },
+            { id: 'm43', date: new Date('2026-06-22T19:00:00'), time: '19:00', round: 'Group Stage', stadiumId: 'att_stadium' },
+            { id: 'm44', date: new Date('2026-06-22T19:00:00'), time: '19:00', round: 'Group Stage', stadiumId: 'levis_stadium' },
+            // June 23, 2026 - Group Stage
+            { id: 'm45', date: new Date('2026-06-23T13:00:00'), time: '13:00', round: 'Group Stage', stadiumId: 'gillette_stadium' },
+            { id: 'm46', date: new Date('2026-06-23T16:00:00'), time: '16:00', round: 'Group Stage', stadiumId: 'bmo_field' },
+            { id: 'm47', date: new Date('2026-06-23T19:00:00'), time: '19:00', round: 'Group Stage', stadiumId: 'nrg_stadium' },
+            { id: 'm48', date: new Date('2026-06-23T19:00:00'), time: '19:00', round: 'Group Stage', stadiumId: 'estadio_akron' },
+            // June 24, 2026 - Group Stage
+            { id: 'm49', date: new Date('2026-06-24T13:00:00'), time: '13:00', round: 'Group Stage', stadiumId: 'hard_rock_stadium' },
+            { id: 'm50', date: new Date('2026-06-24T16:00:00'), time: '16:00', round: 'Group Stage', stadiumId: 'mercedes_benz' },
+            { id: 'm51', date: new Date('2026-06-24T19:00:00'), time: '19:00', round: 'Group Stage', stadiumId: 'bc_place' },
+            { id: 'm52', date: new Date('2026-06-24T19:00:00'), time: '19:00', round: 'Group Stage', stadiumId: 'lumen_field' },
+            { id: 'm53', date: new Date('2026-06-24T19:00:00'), time: '19:00', round: 'Group Stage', stadiumId: 'estadio_azteca' },
+            { id: 'm54', date: new Date('2026-06-24T19:00:00'), time: '19:00', round: 'Group Stage', stadiumId: 'estadio_bbva' },
+            // June 25, 2026 - Group Stage
+            { id: 'm55', date: new Date('2026-06-25T13:00:00'), time: '13:00', round: 'Group Stage', stadiumId: 'lincoln_financial' },
+            { id: 'm56', date: new Date('2026-06-25T16:00:00'), time: '16:00', round: 'Group Stage', stadiumId: 'metlife_stadium' },
+            { id: 'm57', date: new Date('2026-06-25T19:00:00'), time: '19:00', round: 'Group Stage', stadiumId: 'att_stadium' },
+            { id: 'm58', date: new Date('2026-06-25T19:00:00'), time: '19:00', round: 'Group Stage', stadiumId: 'arrowhead_stadium' },
+            { id: 'm59', date: new Date('2026-06-25T19:00:00'), time: '19:00', round: 'Group Stage', stadiumId: 'sofi_stadium' },
+            { id: 'm60', date: new Date('2026-06-25T19:00:00'), time: '19:00', round: 'Group Stage', stadiumId: 'levis_stadium' },
+            // June 26, 2026 - Group Stage
+            { id: 'm61', date: new Date('2026-06-26T13:00:00'), time: '13:00', round: 'Group Stage', stadiumId: 'gillette_stadium' },
+            { id: 'm62', date: new Date('2026-06-26T16:00:00'), time: '16:00', round: 'Group Stage', stadiumId: 'bmo_field' },
+            { id: 'm63', date: new Date('2026-06-26T19:00:00'), time: '19:00', round: 'Group Stage', stadiumId: 'lumen_field' },
+            { id: 'm64', date: new Date('2026-06-26T19:00:00'), time: '19:00', round: 'Group Stage', stadiumId: 'bc_place' },
+            { id: 'm65', date: new Date('2026-06-26T19:00:00'), time: '19:00', round: 'Group Stage', stadiumId: 'nrg_stadium' },
+            { id: 'm66', date: new Date('2026-06-26T19:00:00'), time: '19:00', round: 'Group Stage', stadiumId: 'estadio_akron' },
+            // June 27, 2026 - Group Stage
+            { id: 'm67', date: new Date('2026-06-27T13:00:00'), time: '13:00', round: 'Group Stage', stadiumId: 'metlife_stadium' },
+            { id: 'm68', date: new Date('2026-06-27T16:00:00'), time: '16:00', round: 'Group Stage', stadiumId: 'lincoln_financial' },
+            { id: 'm69', date: new Date('2026-06-27T19:00:00'), time: '19:00', round: 'Group Stage', stadiumId: 'arrowhead_stadium' },
+            { id: 'm70', date: new Date('2026-06-27T19:00:00'), time: '19:00', round: 'Group Stage', stadiumId: 'att_stadium' },
+            { id: 'm71', date: new Date('2026-06-27T19:00:00'), time: '19:00', round: 'Group Stage', stadiumId: 'hard_rock_stadium' },
+            { id: 'm72', date: new Date('2026-06-27T19:00:00'), time: '19:00', round: 'Group Stage', stadiumId: 'mercedes_benz' },
+            // Round of 32
+            { id: 'm73', date: new Date('2026-06-28T16:00:00'), time: '16:00', round: 'Round of 32', stadiumId: 'sofi_stadium' },
+            { id: 'm74', date: new Date('2026-06-29T13:00:00'), time: '13:00', round: 'Round of 32', stadiumId: 'gillette_stadium' },
+            { id: 'm75', date: new Date('2026-06-29T16:00:00'), time: '16:00', round: 'Round of 32', stadiumId: 'estadio_bbva' },
+            { id: 'm76', date: new Date('2026-06-29T19:00:00'), time: '19:00', round: 'Round of 32', stadiumId: 'nrg_stadium' },
+            { id: 'm77', date: new Date('2026-06-30T13:00:00'), time: '13:00', round: 'Round of 32', stadiumId: 'metlife_stadium' },
+            { id: 'm78', date: new Date('2026-06-30T16:00:00'), time: '16:00', round: 'Round of 32', stadiumId: 'att_stadium' },
+            { id: 'm79', date: new Date('2026-06-30T19:00:00'), time: '19:00', round: 'Round of 32', stadiumId: 'estadio_azteca' },
+            { id: 'm80', date: new Date('2026-07-01T13:00:00'), time: '13:00', round: 'Round of 32', stadiumId: 'mercedes_benz' },
+            { id: 'm81', date: new Date('2026-07-01T16:00:00'), time: '16:00', round: 'Round of 32', stadiumId: 'levis_stadium' },
+            { id: 'm82', date: new Date('2026-07-01T19:00:00'), time: '19:00', round: 'Round of 32', stadiumId: 'lumen_field' },
+            { id: 'm83', date: new Date('2026-07-02T13:00:00'), time: '13:00', round: 'Round of 32', stadiumId: 'bmo_field' },
+            { id: 'm84', date: new Date('2026-07-02T16:00:00'), time: '16:00', round: 'Round of 32', stadiumId: 'sofi_stadium' },
+            { id: 'm85', date: new Date('2026-07-02T19:00:00'), time: '19:00', round: 'Round of 32', stadiumId: 'bc_place' },
+            { id: 'm86', date: new Date('2026-07-03T13:00:00'), time: '13:00', round: 'Round of 32', stadiumId: 'hard_rock_stadium' },
+            { id: 'm87', date: new Date('2026-07-03T16:00:00'), time: '16:00', round: 'Round of 32', stadiumId: 'arrowhead_stadium' },
+            { id: 'm88', date: new Date('2026-07-03T19:00:00'), time: '19:00', round: 'Round of 32', stadiumId: 'att_stadium' },
+            // Round of 16
+            { id: 'm89', date: new Date('2026-07-04T16:00:00'), time: '16:00', round: 'Round of 16', stadiumId: 'lincoln_financial' },
+            { id: 'm90', date: new Date('2026-07-04T19:00:00'), time: '19:00', round: 'Round of 16', stadiumId: 'nrg_stadium' },
+            { id: 'm91', date: new Date('2026-07-05T16:00:00'), time: '16:00', round: 'Round of 16', stadiumId: 'metlife_stadium' },
+            { id: 'm92', date: new Date('2026-07-05T19:00:00'), time: '19:00', round: 'Round of 16', stadiumId: 'estadio_azteca' },
+            { id: 'm93', date: new Date('2026-07-06T16:00:00'), time: '16:00', round: 'Round of 16', stadiumId: 'att_stadium' },
+            { id: 'm94', date: new Date('2026-07-06T19:00:00'), time: '19:00', round: 'Round of 16', stadiumId: 'lumen_field' },
+            { id: 'm95', date: new Date('2026-07-07T16:00:00'), time: '16:00', round: 'Round of 16', stadiumId: 'mercedes_benz' },
+            { id: 'm96', date: new Date('2026-07-07T19:00:00'), time: '19:00', round: 'Round of 16', stadiumId: 'bc_place' },
+            // Quarter-finals
+            { id: 'm97', date: new Date('2026-07-09T19:00:00'), time: '19:00', round: 'Quarter-final', stadiumId: 'gillette_stadium' },
+            { id: 'm98', date: new Date('2026-07-10T19:00:00'), time: '19:00', round: 'Quarter-final', stadiumId: 'sofi_stadium' },
+            { id: 'm99', date: new Date('2026-07-11T19:00:00'), time: '19:00', round: 'Quarter-final', stadiumId: 'hard_rock_stadium' },
+            { id: 'm100', date: new Date('2026-07-11T19:00:00'), time: '19:00', round: 'Quarter-final', stadiumId: 'arrowhead_stadium' },
+            // Semi-finals
+            { id: 'm101', date: new Date('2026-07-14T19:00:00'), time: '19:00', round: 'Semi-final', stadiumId: 'att_stadium' },
+            { id: 'm102', date: new Date('2026-07-15T19:00:00'), time: '19:00', round: 'Semi-final', stadiumId: 'mercedes_benz' },
+            // Third Place Play-off
+            { id: 'm103', date: new Date('2026-07-18T16:00:00'), time: '16:00', round: 'Third Place Play-off', stadiumId: 'hard_rock_stadium' },
+            // Final
+            { id: 'm104', date: new Date('2026-07-19T17:00:00'), time: '17:00', round: 'Final', stadiumId: 'metlife_stadium' }
+        ];
+
+        let currentMarkers = [];
+        let activeStadiumId = null;
+        let selectedStadiumsForTravel = []; // Stores up to 4 stadiums for travel calculation
+        let currentPolylines = []; // Stores drawn polylines
+        let currentTravelTimeMarkers = []; // Stores travel time text markers
+
+        // Define the desired order of rounds (unchanged)
+        const roundOrder = [
+            'Group Stage',
+            'Round of 32',
+            'Round of 16',
+            'Quarter-final',
+            'Semi-final',
+            'Third Place Play-off',
+            'Final'
+        ];
+
+        // Hardcoded train times from Google Search for specific routes (simulated) (unchanged)
+        const knownTrainTimes = {
+            'metlife_stadium-lincoln_financial': '1h25m',
+            'lincoln_financial-metlife_stadium': '1h25m',
+            'gillette_stadium-metlife_stadium': '3h40m',
+            'metlife_stadium-gillette_stadium': '3h40m',
+            'estadio_azteca-estadio_akron': 'No direct passenger train route commonly found; likely bus or flight.',
+            'estadio_akron-estadio_azteca': 'No direct passenger train route commonly found; likely bus or flight.'
+            // Add more specific routes as needed based on research
+        };
+
+        // --- City Data for City Guides Tab ---
+        const cityData = {
+            'New York / New Jersey': {
+                population: 'Approx. 20.1 million (metropolitan area)',
+                beerCost: 'US$7-10 for a domestic pint (can vary widely)',
+                foodScene: 'World-renowned, incredibly diverse with options from Michelin-starred dining to iconic street food (pizza, bagels, ethnic cuisines).',
+                nightlife: 'The "City That Never Sleeps" lives up to its name. Offers everything from exclusive clubs and rooftop bars to historic jazz venues and speakeasies. Vibrant and endless options.',
+                fanZones: 'Expected in multiple locations, including Liberty State Park (Jersey City), Bryant Park, Hudson Yards, and Domino Park. Will feature large screens, activities, food, and beverage.',
+                atmosphere: 'Electric and passionate. New York embraces major sporting events with immense enthusiasm. Expect large crowds, buzzing sports bars, and city-wide excitement.',
+                topAttractions: [
+                    'Times Square', 'Central Park', 'Statue of Liberty & Ellis Island', 'Empire State Building', 'Metropolitan Museum of Art',
+                    'Broadway Shows', 'Brooklyn Bridge', 'High Line', 'Grand Central Terminal', 'One World Observatory'
+                ],
+                considerations: 'Vast public transportation network (subway, buses). High cost of living/travel. Multiple airports (JFK, LGA, EWR). Intense pace.'
+            },
+            'Mexico City': {
+                population: 'Approx. 22.8 million (metropolitan area, 2025 estimate)',
+                beerCost: 'MXN 40-70 (approx. US$2.50-4.00) for a domestic beer.',
+                foodScene: 'A culinary wonderland! From world-class fine dining (with Michelin stars) to vibrant street food (tacos, tamales, tortas), it offers unparalleled gastronomic adventures. Rich in traditional and innovative Mexican flavors.',
+                nightlife: 'Diverse and vibrant, from traditional cantinas and high-energy clubs to sophisticated rooftop bars and award-winning speakeasies. Known for its rich musical heritage and enthusiastic party atmosphere.',
+                fanZones: 'Official FIFA Fan Zones are expected to be established, though specific locations are announced closer to the event. Estadio Azteca will host the opening match, ensuring a massive fan presence.',
+                atmosphere: 'Incredibly passionate and lively. Football is a religion here, and major events transform the city into a festive, high-energy spectacle. Expect loud cheering, colorful displays, and a deep love for the game.',
+                topAttractions: [
+                    'Zócalo (Plaza de la Constitución)', 'Palacio de Bellas Artes', 'National Museum of Anthropology', 'Chapultepec Park', 'Frida Kahlo Museum (Casa Azul)',
+                    'Teotihuacan Pyramids (day trip)', 'Paseo de la Reforma', 'Coyoacán neighborhood', 'Mercado de Artesanías La Ciudadela', 'Lucha Libre (Mexican wrestling)'
+                ],
+                considerations: 'High altitude can affect some visitors. Extensive metro system. Traffic can be very heavy. Spanish is essential, but English is spoken in tourist areas.'
+            },
+            'Vancouver': {
+                population: 'Approx. 2.6 million (metropolitan area)',
+                beerCost: 'C$8-10 (approx. US$6-7.50) for a domestic pint.',
+                foodScene: 'Known for its fresh seafood, diverse Asian cuisine (especially Chinese and Japanese), and farm-to-table restaurants. A strong emphasis on healthy and locally sourced ingredients.',
+                nightlife: 'Offers a good mix of lively pubs, craft breweries, cocktail lounges, and smaller music venues. More relaxed than larger global cities but with distinct neighborhoods for different vibes.',
+                fanZones: 'Specific fan zone details for 2026 are pending, but typical locations for major events include downtown areas, False Creek, or near BC Place, offering public viewing and activities.',
+                atmosphere: 'Enthusiastic but generally more laid-back than some other host cities. Canadians are passionate sports fans, and major events bring a strong sense of community and celebration.',
+                topAttractions: [
+                    'Stanley Park', 'Granville Island Public Market', 'Gastown', 'Capilano Suspension Bridge Park', 'Grouse Mountain',
+                    'Science World', 'Vancouver Art Gallery', 'English Bay Beach', 'Robson Street (shopping)', 'Museum of Anthropology at UBC'
+                ],
+                considerations: 'Can be rainy, even in summer. Excellent public transport (SkyTrain, buses). Stunning natural beauty, outdoor activities are a major draw.'
+            },
+            'Los Angeles': {
+                population: 'Approx. 12.7 million (metropolitan area, 2025 estimate)',
+                beerCost: 'US$8-10 for a domestic pint.',
+                foodScene: 'Extremely diverse and innovative, from world-class fine dining to legendary food trucks and pop-ups. Renowned for its Mexican food (especially tacos), Asian cuisines, and health-conscious options.',
+                nightlife: 'Glamorous and wide-ranging. Features exclusive celebrity hotspots, trendy rooftop bars with city views, massive dance clubs with top DJs, and quirky themed bars. Sprawling, so plan transportation.',
+                fanZones: 'Official viewing parties and fan festivals are expected, possibly near SoFi Stadium, L.A. LIVE, or Hermosa Beach Pier. The city has a strong soccer culture, guaranteeing lively events.',
+                atmosphere: 'Vibrant and energetic, reflecting its diverse population and entertainment focus. Major sporting events bring out passionate crowds, though often spread across various venues due to the city\'s size.',
+                topAttractions: [
+                    'Hollywood Walk of Fame & TCL Chinese Theatre', 'Griffith Observatory', 'Universal Studios Hollywood', 'Santa Monica Pier & Beach', 'The Getty Center',
+                    'Disneyland Park (Anaheim, day trip)', 'Runyon Canyon Park (hiking)', 'La Brea Tar Pits and Museum', 'Rodeo Drive', 'The Broad (contemporary art museum)'
+                ],
+                considerations: 'Traffic can be very heavy; public transport is improving but often requires planning. Spread-out city, consider ride-sharing or rental car if exploring widely. Summer can be hot.'
+            },
+            'Toronto': {
+                population: 'Approx. 6.3 million (metropolitan area)',
+                beerCost: 'C$8-10 (approx. US$6-7.50) for a domestic pint.',
+                foodScene: 'Highly multicultural, offering an incredible array of international cuisines (e.g., Italian, Chinese, Indian, Caribbean). A thriving fine dining scene alongside diverse casual eateries.',
+                nightlife: 'Dynamic and diverse, with lively bars, dance clubs, live music venues, and a growing craft brewery scene. Offers something for all tastes, from relaxed pubs to energetic dance floors.',
+                fanZones: 'Specific fan zone details are pending, but major public spaces like Nathan Phillips Square or areas near BMO Field are likely candidates for public viewing events.',
+                atmosphere: 'Passionate and multicultural. Toronto is a city that loves its sports, with a strong sense of pride and a welcoming environment for international visitors during major events.',
+                topAttractions: [
+                    'CN Tower', 'Ripley\'s Aquarium of Canada', 'Royal Ontario Museum (ROM)', 'Casa Loma', 'Distillery District',
+                    'Toronto Islands', 'St. Lawrence Market', 'High Park', 'Hockey Hall of Fame', 'Kensington Market'
+                ],
+                considerations: 'Excellent public transportation (TTC). Summer weather is generally warm to hot. Can be a very walkable city in downtown areas.'
+            },
+            'Guadalajara': {
+                population: 'Approx. 5.3 million (metropolitan area)',
+                beerCost: 'MXN 35-60 (approx. US$2-3.50) for a domestic beer.',
+                foodScene: 'Known as the birthplace of tequila and mariachi, Guadalajara offers authentic Mexican cuisine, especially regional specialties like Birria (goat stew) and Torta Ahogada (drowned sandwich). A vibrant street food scene.',
+                nightlife: 'Lively and energetic, with numerous bars, clubs, and cantinas concentrated in areas like Chapultepec and Providencia. Mariachi squares offer a unique cultural nightlife experience.',
+                fanZones: 'Details pending, but expected to be vibrant, possibly near Estadio Akron or in central plazas, bringing together local and international fans for public viewing.',
+                atmosphere: 'Warm, festive, and deeply passionate about football. Guadalajara is famous for its hospitality and lively cultural scene, which will be amplified during the World Cup.',
+                topAttractions: [
+                    'Hospicio Cabañas (UNESCO World Heritage Site)', 'Guadalajara Cathedral', 'Teatro Degollado', 'Tlaquepaque & Tonalá (artisan towns)', 'Palacio de Gobierno',
+                    'Museo Cabañas', 'Mercado San Juan de Dios', 'Rotonda de los Jaliscienses Ilustres', 'Parque Metropolitano', 'Barranca de Huentitán'
+                ],
+                considerations: 'Spanish is highly recommended. Public transport includes buses and a light rail system. A more traditional Mexican experience than coastal resorts.'
+            },
+            'Monterrey': {
+                population: 'Approx. 5.9 million (metropolitan area)',
+                beerCost: 'MXN 35-60 (approx. US$2-3.50) for a domestic beer.',
+                foodScene: 'Famous for its meat dishes, particularly cabrito (roasted kid goat) and arrachera (flank steak). Offers a mix of traditional Northern Mexican flavors and modern culinary trends.',
+                nightlife: 'Vibrant, especially in areas like Barrio Antiguo and San Pedro Garza García, with a mix of trendy bars, clubs, and live music venues catering to a dynamic, youthful population.',
+                fanZones: 'Specific locations are pending, but public viewing events are expected to create a lively atmosphere for fans to gather.',
+                atmosphere: 'Modern and dynamic, with a strong industrial and business presence, but also a deep love for football. Expect an enthusiastic and welcoming atmosphere.',
+                topAttractions: [
+                    'Paseo Santa Lucía (artificial riverwalk)', 'Parque Fundidora', 'Museo de Historia Mexicana', 'Macroplaza', 'Chipinque Ecological Park',
+                    'Grutas de García (caves, day trip)', 'Barrio Antiguo', 'Museo de Arte Contemporáneo (MARCO)', 'La Huasteca Ecological Park', 'Estadio BBVA'
+                ],
+                considerations: 'Hot climate in summer. Public transport is less extensive than Mexico City, taxis/ride-sharing common. Industrial hub with growing tourism.'
+            },
+            'Atlanta': {
+                population: 'Approx. 6.1 million (metropolitan area)',
+                beerCost: 'US$6-8 for a domestic pint.',
+                foodScene: 'A growing and diverse culinary scene known for its Southern comfort food, innovative fusion restaurants, and international flavors. Excellent barbecue and soul food.',
+                nightlife: 'Bustling and varied, with vibrant club districts, live music venues spanning genres from hip-hop to jazz, and a good selection of breweries and cocktail bars.',
+                fanZones: 'Expected in downtown areas, possibly around Centennial Olympic Park, offering large screens and fan activities.',
+                atmosphere: 'Energetic and passionate, especially for sports. Atlanta has a strong sports culture, and the city will offer a welcoming Southern hospitality experience to World Cup visitors.',
+                topAttractions: [
+                    'Georgia Aquarium', 'World of Coca-Cola', 'Centennial Olympic Park', 'Martin Luther King Jr. National Historical Park', 'Atlanta Botanical Garden',
+                    'High Museum of Art', 'Piedmont Park', 'BeltLine', 'College Football Hall of Fame', 'Zoo Atlanta'
+                ],
+                considerations: 'Hot and humid summers. Public transport (MARTA) serves key areas but a car/ride-share might be useful for broader exploration. Southern hospitality is a highlight.'
+            },
+            'Boston': {
+                population: 'Approx. 4.9 million (metropolitan area)',
+                beerCost: 'US$7-9 for a domestic pint.',
+                foodScene: 'Renowned for its fresh seafood (clams, lobsters), historic pubs, and Italian-American cuisine (especially in the North End). Also a strong farm-to-table movement.',
+                nightlife: 'Features a mix of historic pubs, student-friendly bars, cocktail lounges, and live music venues. More pub and bar-focused than club-oriented.',
+                fanZones: 'Details pending, but likely to be in public squares or parks, providing a central gathering point for fans.',
+                atmosphere: 'Passionate and steeped in sports history. Boston fans are famously dedicated, creating an intense and vibrant atmosphere during major sporting events.',
+                topAttractions: [
+                    'Freedom Trail', 'Fenway Park (historic baseball stadium)', 'Boston Common & Public Garden', 'Museum of Fine Arts', 'New England Aquarium',
+                    'Faneuil Hall Marketplace', 'Paul Revere House', 'USS Constitution Museum', 'Isabella Stewart Gardner Museum', 'Cambridge (Harvard & MIT)'
+                ],
+                considerations: 'Very walkable downtown. Excellent public transportation ("The T"). Historical significance is a major draw. Summers are pleasant but can be hot.'
+            },
+            'Dallas': {
+                population: 'Approx. 7.6 million (Dallas-Fort Worth metropolitan area)',
+                beerCost: 'US$6-8 for a domestic pint.',
+                foodScene: 'Known for its Tex-Mex, barbecue, and diverse range of global cuisines. A burgeoning fine dining scene alongside casual, hearty options.',
+                nightlife: 'Active and varied, with lively bar districts (Deep Ellum, Uptown), country-western dance halls, and upscale lounges. Offers a classic Texas experience with modern twists.',
+                fanZones: 'Expected to be central, potentially near the AT&T Stadium or in large downtown areas, fostering a strong sense of community for fans.',
+                atmosphere: 'Enthusiastic and welcoming, with a strong emphasis on Texas pride and football culture. Major events are large-scale celebrations with plenty of energy.',
+                topAttractions: [
+                    'The Sixth Floor Museum at Dealey Plaza', 'Dallas Arts District', 'Dallas Arboretum and Botanical Garden', 'Dallas World Aquarium', 'Klyde Warren Park',
+                    'Reunion Tower', 'Perot Museum of Nature and Science', 'Deep Ellum (entertainment district)', 'George W. Bush Presidential Center', 'Dallas Cattle Drive Sculptures'
+                ],
+                considerations: 'Hot summers. Car-dependent city, but ride-sharing is prevalent. Southern hospitality is strong. Expect large venues and big crowds.'
+            },
+            'Houston': {
+                population: 'Approx. 7.3 million (metropolitan area)',
+                beerCost: 'US$6-8 for a domestic pint.',
+                foodScene: 'Incredibly diverse, known for its Tex-Mex, Vietnamese, and other Asian cuisines, as well as classic Southern comfort food and barbecue. A true foodie destination.',
+                nightlife: 'Features a dynamic bar scene across multiple districts (Midtown, Montrose, Washington Avenue) with everything from casual pubs to energetic dance clubs and live music venues.',
+                fanZones: 'Likely to be organized in central locations, potentially near NRG Stadium or in downtown parks, providing family-friendly areas for public viewing.',
+                atmosphere: 'Warm, friendly, and enthusiastic, with a strong sense of community and a diverse, international population contributing to the vibrant sporting atmosphere.',
+                topAttractions: [
+                    'Space Center Houston', 'Houston Museum District', 'Discovery Green Park', 'Houston Zoo', 'Galleria (shopping)',
+                    'Hermann Park', 'Buffalo Bayou Park', 'Minute Maid Park (baseball stadium)', 'Contemporary Arts Museum Houston', 'Rothko Chapel'
+                ],
+                considerations: 'Very hot and humid summers. Sprawling city, car or ride-sharing is essential. Known for its space industry and energy sector.'
+            },
+            'Kansas City': {
+                population: 'Approx. 2.2 million (metropolitan area)',
+                beerCost: 'US$5-7 for a domestic pint.',
+                foodScene: 'Legendary for its barbecue scene, with numerous acclaimed smokehouses. Also a growing craft beer scene and diverse culinary options beyond BBQ.',
+                nightlife: 'A lively and growing nightlife, especially in areas like the Power & Light District, Westport, and Crossroads Arts District, offering bars, breweries, and live music.',
+                fanZones: 'Details pending, but expected to be vibrant, focusing on the city\'s strong sports fan base, possibly near Arrowhead Stadium or downtown parks.',
+                atmosphere: 'Incredibly passionate and dedicated, especially to football. Kansas City fans are known for their unwavering support, creating a festive and loud atmosphere for games.',
+                topAttractions: [
+                    'National WWI Museum and Memorial', 'Nelson-Atkins Museum of Art', 'Country Club Plaza', 'Union Station', 'Negro Leagues Baseball Museum',
+                    'American Jazz Museum', 'World of Fun (amusement park)', 'City Market', 'Kauffman Stadium (baseball stadium)', 'Boulevard Brewing Company'
+                ],
+                considerations: 'Summers can be hot and humid. Best navigated by car or ride-sharing. Known for its jazz heritage and fountains.'
+            },
+            'Miami': {
+                population: 'Approx. 6.2 million (metropolitan area)',
+                beerCost: 'US$7-10 for a domestic pint (can be higher in tourist areas).',
+                foodScene: 'Vibrant and diverse, heavily influenced by Latin American and Caribbean flavors (Cuban, Haitian, Colombian). Excellent fresh seafood and a growing fine dining scene.',
+                nightlife: 'Famous for its high-energy clubs, trendy rooftop bars, and vibrant beach scene, particularly in South Beach. A global hub for nightlife and music.',
+                fanZones: 'Expected in prominent public spaces, possibly South Beach or Bayfront Park, capitalizing on Miami\'s party atmosphere and international appeal.',
+                atmosphere: 'Lively, festive, and international. Miami is a melting pot of cultures, and major events here feel like a global party, with a strong Latin American influence.',
+                topAttractions: [
+                    'South Beach & Art Deco Historic District', 'Vizcaya Museum & Gardens', 'Everglades National Park (day trip)', 'Wynwood Walls', 'Little Havana',
+                    'Pérez Art Museum Miami (PAMM)', 'Phillip and Patricia Frost Museum of Science', 'Jungle Island', 'Biscayne National Park', 'Ocean Drive'
+                ],
+                considerations: 'Very hot and humid summers. Car or ride-sharing recommended for extensive travel. Spanish is widely spoken. Strong emphasis on nightlife and beaches.'
+            },
+            'Philadelphia': {
+                population: 'Approx. 6.3 million (metropolitan area)',
+                beerCost: 'US$6-8 for a domestic pint.',
+                foodScene: 'Iconic for its cheesesteaks and hoagies. Also boasts a diverse and growing culinary scene with excellent fine dining, ethnic cuisines, and a thriving craft beer culture.',
+                nightlife: 'A blend of historic pubs, modern cocktail bars, live music venues, and vibrant districts like Fishtown and Rittenhouse Square offering varied options.',
+                fanZones: 'Expected in central areas like Fairmount Park or near Lincoln Financial Field, catering to the city\'s passionate sports fans.',
+                atmosphere: 'Fiercely passionate and dedicated. Philadelphia fans are known for their intensity and deep love for their teams, creating a very strong and engaging atmosphere.',
+                topAttractions: [
+                    'Liberty Bell', 'Independence Hall', 'Philadelphia Museum of Art (Rocky Steps)', 'Reading Terminal Market', 'National Constitution Center',
+                    'Franklin Institute', 'Eastern State Penitentiary', 'Barnes Foundation', 'Mutter Museum', 'Old City Historic District'
+                ],
+                considerations: 'Very walkable downtown. Excellent public transportation (SEPTA). Rich in American history. Summers can be hot and humid.'
+            },
+            'San Francisco Bay Area': {
+                population: 'Approx. 7.8 million (Bay Area combined statistical area)',
+                beerCost: 'US$8-10 for a domestic pint (higher in some areas).',
+                foodScene: 'Innovative and diverse, known for its farm-to-table movement, high-quality seafood, a wide range of ethnic cuisines, and world-class fine dining. Also a hub for Californian wine country.',
+                nightlife: 'Varied, with upscale cocktail bars, unique speakeasies, live music venues, and a vibrant LGBTQ+ scene. Nightlife tends to be more concentrated in specific neighborhoods.',
+                fanZones: 'Likely to be in large public spaces in San Francisco or Santa Clara, providing dynamic gathering points for fans.',
+                atmosphere: 'Enthusiastic and diverse, with a global mindset. Major sporting events are well-supported, reflecting the region\'s love for sports and its tech-forward, inclusive culture.',
+                topAttractions: [
+                    'Golden Gate Bridge', 'Alcatraz Island', 'Fisherman\'s Wharf & Pier 39', 'Lombard Street', 'Cable Cars',
+                    'Golden Gate Park', 'Exploratorium', 'Chinatown', 'Coit Tower', 'Muir Woods National Monument (day trip)'
+                ],
+                considerations: 'Can be foggy/cool even in summer. Excellent public transport (BART, Muni). Hilly terrain can make walking challenging in some areas. High cost of living/travel.'
+            },
+            'Seattle': {
+                population: 'Approx. 4.1 million (metropolitan area)',
+                beerCost: 'US$7-9 for a domestic pint.',
+                foodScene: 'Strong emphasis on fresh Pacific Northwest seafood, farm-to-table cuisine, and a vibrant coffee culture. Also excellent Asian and international food options.',
+                nightlife: 'Diverse and growing, with a thriving craft brewery scene, live music venues, cozy pubs, and unique cocktail bars. More relaxed than some larger cities.',
+                fanZones: 'Expected in downtown parks or near Lumen Field, providing a hub for fans to watch games and participate in activities.',
+                atmosphere: 'Passionate and loyal, particularly for football. Seattle fans are known for their loud and energetic support, creating a memorable atmosphere for sporting events.',
+                topAttractions: [
+                    'Space Needle', 'Pike Place Market', 'Chihuly Garden and Glass', 'Museum of Pop Culture (MoPOP)', 'Ferry to Bainbridge Island',
+                    'Woodland Park Zoo', 'Seattle Art Museum', 'Kerry Park (views)', 'Fremont Troll', 'Underground Tour'
+                ],
+                considerations: 'Can be rainy, even in summer (though summer is generally drier). Good public transport. Known for its tech industry and coffee culture.'
+            }
+        };
+
+
+        /**
+         * Function to handle tab switching.
+         * Hides all tab contents and shows the selected one, also updates button styling.
+         * @param {string} tabId - The ID of the tab content div to show.
+         */
+        function showTab(tabId) {
+            // Get all tab content divs
+            const tabContents = document.querySelectorAll('.tab-content');
+            // Hide all tab content
+            tabContents.forEach(content => {
+                content.classList.add('hidden');
+            });
+
+            // Get all tab buttons
+            const tabButtons = document.querySelectorAll('.tab-button');
+            // Remove 'active' class from all buttons
+            tabButtons.forEach(button => {
+                button.classList.remove('active');
+            });
+
+            // Show the selected tab content
+            document.getElementById(tabId).classList.remove('hidden');
+
+            // Add 'active' class to the clicked button
+            document.getElementById(tabId.replace('-content', '-tab')).classList.add('active');
+
+            // Special handling for the map tab to ensure it renders correctly when shown
+            if (tabId === 'map-content') {
+                map.invalidateSize(); // Invalidate Leaflet map size when its container becomes visible
+            }
+        }
+
+        /**
+         * Formats a Date object into a readable date string.
+         * @param {Date} date - The date object to format.
+         * @returns {string} - The formatted date string (e.g., "June 11, 2026").
+         */
+        function formatDate(date) {
+            return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+        }
+
+        /**
+         * Converts degrees to radians.
+         * @param {number} deg - Angle in degrees.
+         * @returns {number} - Angle in radians.
+         */
+        function deg2rad(deg) {
+            return deg * (Math.PI / 180);
+        }
+
+        /**
+         * Calculates the distance between two geographical points using the Haversine formula.
+         * @param {Object} p1 - First point with lat and lon properties.
+         * @param {Object} p2 - Second point with lat and lon properties.
+         * @returns {number} - Distance in kilometers.
+         */
+        function calculateDistance(p1, p2) {
+            const R = 6371; // Radius of Earth in kilometers
+            const dLat = deg2rad(p2.lat - p1.lat);
+            const dLon = deg2rad(p2.lon - p1.lon);
+            const a =
+                Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(deg2rad(p1.lat)) * Math.cos(deg2rad(p2.lat)) *
+                Math.sin(dLon / 2) * Math.sin(dLon / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            const distance = R * c; // Distance in km
+            return distance;
+        }
+
+        /**
+         * Filters matches based on the selected date range and rounds.
+         * @param {Array} matches - The array of all match objects.
+         * @param {Date|null} startDate - The start date for filtering (or null for no date filter).
+         * @param {Date|null} endDate - The end date for filtering (or null for no date filter).
+         * @param {Array<string>} selectedRounds - An array of selected round names.
+         * @returns {Array} - An array of filtered match objects.
+         */
+        function filterMatches(matches, startDate, endDate, selectedRounds) {
+            return matches.filter(match => {
+                const matchDate = new Date(match.date);
+                matchDate.setHours(0, 0, 0, 0); // Normalize match date to start of day
+
+                // Date filtering
+                const isDateFiltered = (!startDate && !endDate) ||
+                                     (startDate && endDate && matchDate >= startDate && matchDate <= endDate);
+
+                // Round filtering
+                const isRoundFiltered = selectedRounds.length === 0 || selectedRounds.includes(match.round);
+
+                return isDateFiltered && isRoundFiltered;
+            });
+        }
+
+        /**
+         * Counts the number of matches for each stadium within the filtered range.
+         * @param {Array} filteredMatches - The array of matches after filtering.
+         * @returns {Object} - An object where keys are stadium IDs and values are match counts.
+         */
+        function getStadiumMatchCounts(filteredMatches) {
+            const counts = {};
+            filteredMatches.forEach(match => {
+                counts[match.stadiumId] = (counts[match.stadiumId] || 0) + 1;
+            });
+            return counts;
+        }
+
+        /**
+         * Displays the details of a single selected stadium and its filtered matches.
+         * @param {Object} stadium - The stadium object.
+         * @param {Array} currentFilteredMatches - The currently filtered matches.
+         */
+        function displayStadiumDetails(stadium, currentFilteredMatches) {
+            const stadiumDetailsDiv = document.getElementById('stadiumDetails');
+            stadiumDetailsDiv.classList.remove('hidden'); // Show the details section
+
+            const stadiumMatches = currentFilteredMatches.filter(match => match.stadiumId === stadium.id);
+
+            let contentHtml = `
+                <h2 class="text-2xl font-semibold text-gray-800 mb-4">Stadium Details</h2>
+                <div id="detailsContent" class="text-gray-700">
+                    <p class="text-lg font-bold mb-2">Stadium Name: ${stadium.name} (${stadium.city}, ${stadium.country})</p>
+                    <p class="mb-2">Capacity: ${stadium.capacity.toLocaleString()}</p>
+                    <p class="mb-4">Number of Games (filtered): ${stadiumMatches.length}</p>
+                    <h3 class="text-xl font-semibold text-gray-800 mb-2">Match Schedule:</h3>
+                    <div id="matchList" class="stadium-info max-h-60 overflow-y-auto pr-2">
+            `;
+
+            if (stadiumMatches.length > 0) {
+                stadiumMatches.sort((a, b) => a.date - b.date).forEach(match => {
+                    contentHtml += `
+                        <div class="match-list-item">
+                            <p><strong>Date:</strong> ${formatDate(match.date)}</p>
+                            <p><strong>Time:</strong> ${match.time} (Local Time)</p>
+                            <p><strong>Round:</strong> ${match.round}</p>
+                        </div>
+                    `;
+                });
+            } else {
+                contentHtml += '<p class="text-gray-600">No matches found for this stadium within the selected date and round filters.</p>';
+            }
+            contentHtml += `</div></div>`;
+            stadiumDetailsDiv.innerHTML = contentHtml;
+        }
+
+        /**
+         * Clears all drawn polylines and travel time markers from the map.
+         */
+        function clearPolylinesAndMarkers() {
+            currentPolylines.forEach(polyline => map.removeLayer(polyline));
+            currentPolylines = [];
+            currentTravelTimeMarkers.forEach(marker => map.removeLayer(marker));
+            currentTravelTimeMarkers = [];
+        }
+
+        /**
+         * Displays travel time details and combined games for multiple selected stadiums.
+         * Also draws lines and labels on the map.
+         * @param {Array<Object>} selectedStadiums - Array of selected stadium objects.
+         * @param {Array} currentFilteredMatches - The currently filtered matches for context.
+         */
+        function displayMultiStadiumDetails(selectedStadiums, currentFilteredMatches) {
+            const stadiumDetailsDiv = document.getElementById('stadiumDetails');
+            stadiumDetailsDiv.classList.remove('hidden'); // Show the details section
+
+            // Clear existing lines and text markers before drawing new ones
+            clearPolylinesAndMarkers();
+
+            let contentHtml = `
+                <h2 class="text-2xl font-semibold text-gray-800 mb-4">Travel & Games Across Selected Stadiums</h2>
+                <div class="text-gray-700">
+                    <div class="travel-message mb-4">
+                        Selected: ${selectedStadiums.length} of 4 stadiums. Click more or click any selected stadium to deselect.
+                        <br>Click **Clear Selected Stadiums** to hide this view.
+                    </div>
+            `;
+
+            // Display travel times for all unique pairs
+            if (selectedStadiums.length > 1) {
+                contentHtml += `<h3 class="text-xl font-semibold text-gray-800 mb-3">Travel Times Between All Pairs:</h3>`;
+                contentHtml += `<div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6">`; // Use grid for condensed view
+
+                for (let i = 0; i < selectedStadiums.length; i++) {
+                    for (let j = i + 1; j < selectedStadiums.length; j++) {
+                        const s1 = selectedStadiums[i];
+                        const s2 = selectedStadiums[j];
+
+                        const distanceKm = calculateDistance(s1, s2);
+                        const flightSpeedKmH = 800;
+                        const flightTimeHours = distanceKm / flightSpeedKmH;
+                        const totalFlightTimeHours = flightTimeHours + 1.5; // Add buffer
+
+                        const key1 = `${s1.id}-${s2.id}`;
+                        const key2 = `${s2.id}-${s1.id}`;
+
+                        let trainTimeMessage = '';
+                        if (knownTrainTimes[key1] || knownTrainTimes[key2]) {
+                            trainTimeMessage = knownTrainTimes[key1] || knownTrainTimes[key2];
+                            if (trainTimeMessage.includes('No direct passenger train')) {
+                                trainTimeMessage = `<strong>No direct train info.</strong> ${trainTimeMessage.replace('No direct passenger train route commonly found; likely bus or flight.', 'Likely bus or flight.')}`;
+                            } else {
+                                trainTimeMessage = `<strong>Train:</strong> ${trainTimeMessage}`;
+                            }
+                        } else {
+                            const trainSpeedKmH = 80;
+                            const trainTimeHours = distanceKm / trainSpeedKmH;
+                            trainTimeMessage = `<strong>Train Est:</strong> ${trainTimeHours.toFixed(0)} hrs <span class="text-xs text-gray-500">(Rough)</span>`;
+                        }
+
+                        contentHtml += `
+                            <div class="p-2 border border-gray-200 rounded-md bg-white text-sm">
+                                <p class="font-bold">${s1.city} &harr; ${s2.city}</p>
+                                <p>Dist: ${distanceKm.toFixed(0)} km</p>
+                                <p>Flight Est: ${totalFlightTimeHours.toFixed(1)} hrs</p>
+                                <p>${trainTimeMessage}</p>
+                            </div>
+                        `;
+
+                        // Draw polyline on map
+                        const polyline = L.polyline([[s1.lat, s1.lon], [s2.lat, s2.lon]], {color: '#d1d5db', weight: 3}).addTo(map);
+                        currentPolylines.push(polyline);
+
+                        // Add text label for flight time on the line
+                        const midLat = (s1.lat + s2.lat) / 2;
+                        const midLon = (s1.lon + s2.lon) / 2;
+                        const timeText = `${totalFlightTimeHours.toFixed(1)}h F`;
+
+                        const timeIcon = L.divIcon({
+                            className: 'travel-time-label',
+                            html: timeText,
+                            iconSize: [0, 0], // Set to 0 to let CSS handle sizing via content
+                            iconAnchor: [0, 0] // Anchor at top-left, centering handled by CSS transform
+                        });
+                        const timeMarker = L.marker([midLat, midLon], {icon: timeIcon}).addTo(map);
+                        currentTravelTimeMarkers.push(timeMarker);
+                    }
+                }
+                contentHtml += `</div>`; // Close grid
+            } else if (selectedStadiums.length === 1) {
+                // When only one stadium is selected in this multi-select mode, show a message
+                contentHtml += `
+                    <div class="travel-message">
+                        <strong>${selectedStadiums[0].name}</strong> selected. Click up to **${4 - selectedStadiums.length} more stadiums** to plan your route.
+                    </div>
+                `;
+            }
+
+
+            // Get and combine matches for all selected stadiums, applying current filters
+            let allGamesInSelectedStadiums = [];
+            selectedStadiums.forEach(stadium => {
+                // Filter from currentFilteredMatches, not allMatches
+                const gamesAtThisStadium = currentFilteredMatches.filter(match => match.stadiumId === stadium.id);
+                allGamesInSelectedStadiums = allGamesInSelectedStadiums.concat(gamesAtThisStadium);
+            });
+            allGamesInSelectedStadiums.sort((a, b) => a.date - b.date); // Sort by date
+
+            let combinedMatchesHtml = '';
+            if (allGamesInSelectedStadiums.length > 0) {
+                combinedMatchesHtml += '<h3 class="text-xl font-semibold text-gray-800 mb-2 mt-6">All Games at Selected Stadiums (Filtered):</h3><div class="stadium-info max-h-60 overflow-y-auto pr-2">';
+                allGamesInSelectedStadiums.forEach(match => {
+                    const matchStadium = stadiums.find(s => s.id === match.stadiumId);
+                    combinedMatchesHtml += `
+                        <div class="match-list-item">
+                            <p><strong>Date:</strong> ${formatDate(match.date)}</p>
+                            <p><strong>Time:</strong> ${match.time} (Local Time)</p>
+                            <p><strong>Round:</strong> ${match.round}</p>
+                            <p class="font-semibold text-blue-700">At: ${matchStadium ? matchStadium.name + ' in ' + matchStadium.city : 'Unknown Stadium'}</p>
+                        </div>
+                    `;
+                });
+                combinedMatchesHtml += '</div>';
+            } else {
+                combinedMatchesHtml += '<p class="text-gray-600 mt-6">No matches found for these selected stadiums within the current date and round filters.</p>';
+            }
+
+            contentHtml += `${combinedMatchesHtml}</div>`;
+            stadiumDetailsDiv.innerHTML = contentHtml;
+        }
+
+        /**
+         * Renders/updates all stadium markers on the map.
+         * @param {Object} stadiumMatchCounts - An object with stadium IDs and their match counts.
+         * @param {Array} currentFilteredMatches - The currently filtered matches.
+         */
+        function renderMarkers(stadiumMatchCounts, currentFilteredMatches) {
+            // Clear existing markers and any lines/labels first
+            currentMarkers.forEach(marker => map.removeLayer(marker));
+            currentMarkers = [];
+            clearPolylinesAndMarkers(); // Ensure lines and labels are cleared on re-render
+
+            stadiums.forEach(stadium => {
+                const numGames = stadiumMatchCounts[stadium.id] || 0;
+                const markerColor = countryColors[stadium.country] || '#6B7280'; // Default gray if color not found
+
+                // Determine if this stadium is currently selected for travel
+                const isSelected = selectedStadiumsForTravel.some(s => s.id === stadium.id);
+                const markerClass = isSelected ? 'custom-div-icon selected' : 'custom-div-icon';
+
+
+                // Custom icon for markers to display game count with country color
+                const customIcon = L.divIcon({
+                    className: markerClass, // Apply the class based on selection status
+                    html: `<div style="background-color: ${markerColor};">${numGames}</div>`,
+                    iconSize: [40, 40], // Slightly larger for better visibility
+                    iconAnchor: [20, 20] // Center the icon
+                });
+
+                const marker = L.marker([stadium.lat, stadium.lon], { icon: customIcon }).addTo(map);
+
+                marker.bindPopup(`<b>${stadium.name}</b><br>${stadium.city}, ${stadium.country}<br>Capacity: ${stadium.capacity.toLocaleString()}<br>Matches (filtered): ${numGames}`);
+
+                marker.on('click', () => {
+                    // Check if the clicked stadium is already in the travel selection
+                    const isAlreadySelected = selectedStadiumsForTravel.some(s => s.id === stadium.id);
+
+                    if (isAlreadySelected) {
+                        selectedStadiumsForTravel = selectedStadiumsForTravel.filter(s => s.id !== stadium.id);
+                    } else {
+                        if (selectedStadiumsForTravel.length < 4) {
+                            selectedStadiumsForTravel.push(stadium);
+                        } else {
+                            // If 4 are already selected, reset and start a new selection with the current stadium
+                            selectedStadiumsForTravel = [stadium];
+                        }
+                    }
+                    // Crucially, call applyFilters to re-render markers and update the details panel
+                    applyFilters();
+                });
+                currentMarkers.push(marker);
+            });
+        }
+
+        /**
+         * Populates the round filter dropdown with unique rounds in a specific order.
+         */
+        function populateRoundFilter() {
+            const roundFilterSelect = document.getElementById('roundFilter');
+            // Ensure 'Group Stage' is correctly assigned for m01 (already done in data)
+
+            const uniqueRounds = [...new Set(allMatches.map(match => match.round))];
+
+            // Sort uniqueRounds based on the predefined roundOrder
+            uniqueRounds.sort((a, b) => {
+                const indexA = roundOrder.indexOf(a);
+                const indexB = roundOrder.indexOf(b);
+                // Handle cases where a round might not be in roundOrder (place at end)
+                if (indexA === -1 && indexB === -1) return 0;
+                if (indexA === -1) return 1;
+                if (indexB === -1) return -1;
+                return indexA - indexB;
+            });
+
+            roundFilterSelect.innerHTML = ''; // Clear existing options
+            uniqueRounds.forEach(round => {
+                const option = document.createElement('option');
+                option.value = round;
+                option.textContent = round;
+                roundFilterSelect.appendChild(option);
+            });
+        }
+
+        /**
+         * Selects or deselects all options in the round filter.
+         * @param {boolean} select - True to select all, false to deselect all.
+         */
+        function toggleAllRounds(select) {
+            const roundFilterSelect = document.getElementById('roundFilter');
+            for (let i = 0; i < roundFilterSelect.options.length; i++) {
+                roundFilterSelect.options[i].selected = select;
+            }
+        }
+
+        /**
+         * Sets the tournament start and end dates helper text.
+         */
+        function setTournamentDateHelper() {
+            let minDate = allMatches[0].date;
+            let maxDate = allMatches[0].date;
+
+            allMatches.forEach(match => {
+                if (match.date < minDate) {
+                    minDate = match.date;
+                }
+                if (match.date > maxDate) {
+                    maxDate = match.date;
+                }
+            });
+
+            const helperText = document.getElementById('tournamentDateHelper');
+            helperText.textContent = `Tournament Dates: ${formatDate(minDate)} - ${formatDate(maxDate)}`;
+        }
+
+        /**
+         * Handles the filter application.
+         */
+        function applyFilters() {
+            const startDateInput = document.getElementById('startDate').value;
+            const endDateInput = document.getElementById('endDate').value;
+            const roundFilterSelect = document.getElementById('roundFilter');
+
+            let startDate = startDateInput ? new Date(startDateInput) : null;
+            let endDate = endDateInput ? new Date(endDateInput) : null;
+
+            // Normalize end date to end of day for proper range filtering
+            if (endDate) {
+                endDate.setHours(23, 59, 59, 999);
+            }
+
+            // Validate dates if both are provided
+            if (startDate && endDate && startDate > endDate) {
+                const detailsDiv = document.getElementById('stadiumDetails');
+                detailsDiv.classList.remove('hidden');
+                detailsDiv.innerHTML = '<p class="text-red-600 text-center font-bold">Error: Start date cannot be after end date. Please adjust your dates.</p>';
+                return;
+            } else if (document.getElementById('stadiumDetails').innerHTML.includes('Error:')) {
+                // Clear error message if dates are now valid
+                document.getElementById('stadiumDetails').classList.add('hidden');
+            }
+
+            const selectedRounds = Array.from(roundFilterSelect.selectedOptions).map(option => option.value);
+
+            const filteredMatches = filterMatches(allMatches, startDate, endDate, selectedRounds);
+
+            const stadiumMatchCounts = getStadiumMatchCounts(filteredMatches);
+            renderMarkers(stadiumMatchCounts, filteredMatches);
+
+            // Re-display details based on current selectedStadiumsForTravel
+            if (selectedStadiumsForTravel.length > 0) {
+                displayMultiStadiumDetails(selectedStadiumsForTravel, filteredMatches);
+            } else if (activeStadiumId) { // Fallback to single stadium view if active and no multi-selection
+                 const activeStadium = stadiums.find(s => s.id === activeStadiumId);
+                 if (activeStadium) {
+                     displayStadiumDetails(activeStadium, filteredMatches);
+                 }
+            } else {
+                 // If no stadium is active or multi-selected, hide details section
+                document.getElementById('stadiumDetails').classList.add('hidden');
+            }
+            // Note: selectedStadiumsForTravel is intentionally NOT reset here,
+            // so active multi-selections persist across filter applications.
+        }
+
+        /**
+         * Clears all selected stadiums for travel/combined view.
+         */
+        function clearStadiumSelection() {
+            selectedStadiumsForTravel = []; // Clear the array
+            activeStadiumId = null; // Also clear the single active stadium
+            document.getElementById('stadiumDetails').classList.add('hidden'); // Hide the details panel
+            applyFilters(); // Re-render markers to update visual state (remove 'selected' class) and clear lines/labels
+        }
+
+        /**
+         * Populates the city selection dropdown in the City Guides tab.
+         */
+        function populateCitySelect() {
+            const citySelect = document.getElementById('citySelect');
+            // Sort cities alphabetically for a better user experience
+            // Use a Set to ensure unique cities, then convert back to array for sorting
+            const uniqueCities = Array.from(new Set(stadiums.map(stadium => stadium.city)));
+            uniqueCities.sort((a, b) => a.localeCompare(b));
+
+            citySelect.innerHTML = '<option value="">-- Select a City --</option>'; // Clear and add default
+            uniqueCities.forEach(city => {
+                const option = document.createElement('option');
+                option.value = city;
+                option.textContent = city;
+                citySelect.appendChild(option);
+            });
+        }
+
+        /**
+         * Displays information for the selected city in the City Guides tab.
+         */
+        function displayCityInfo() {
+            const citySelect = document.getElementById('citySelect');
+            const cityInfoDisplay = document.getElementById('cityInfoDisplay');
+            const getItineraryBtn = document.getElementById('getItineraryBtn');
+            const itineraryOutput = document.getElementById('itineraryOutput');
+            const selectedCityName = citySelect.value;
+
+            if (!selectedCityName) {
+                cityInfoDisplay.classList.add('hidden');
+                getItineraryBtn.classList.add('hidden'); // Hide button if no city selected
+                itineraryOutput.classList.add('hidden'); // Hide itinerary output
+                itineraryOutput.innerHTML = ''; // Clear previous itinerary
+                cityInfoDisplay.innerHTML = '';
+                return;
+            }
+
+            const cityInfo = cityData[selectedCityName] || {
+                population: 'N/A',
+                beerCost: 'N/A',
+                foodScene: 'No specific information available yet.',
+                nightlife: 'No specific information available yet.',
+                fanZones: 'Information pending. Typically, major public spaces host fan zones during the World Cup.',
+                atmosphere: 'Expect a lively and welcoming atmosphere during the World Cup.',
+                topAttractions: ['No specific top attractions listed yet.'],
+                considerations: 'General travel considerations apply.'
+            };
+
+            let attractionsHtml = cityInfo.topAttractions.map(attr => `<li>${attr}</li>`).join('');
+
+            cityInfoDisplay.innerHTML = `
+                <h3 class="text-2xl font-bold text-gray-800 mb-3">${selectedCityName}</h3>
+                <div class="city-info-section text-gray-700">
+                    <p><strong>Population:</strong> ${cityInfo.population}</p>
+                    <p><strong>Idea of Cost (Beer):</strong> ${cityInfo.beerCost}</p>
+
+                    <h3>Food Scene:</h3>
+                    <p>${cityInfo.foodScene}</p>
+
+                    <h3>Nightlife:</h3>
+                    <p>${cityInfo.nightlife}</p>
+
+                    <h3>Expected Fan Zones:</h3>
+                    <p>${cityInfo.fanZones}</p>
+
+                    <h3>Expected Atmosphere:</h3>
+                    <p>${cityInfo.atmosphere}</p>
+
+                    <h3>Top Tourist Attractions:</h3>
+                    <ul class="list-disc list-inside">
+                        ${attractionsHtml}
+                    </ul>
+
+                    <h3>Other Considerations:</h3>
+                    <p>${cityInfo.considerations}</p>
+                </div>
+                <div class="flex flex-col items-center mt-6">
+                    <button id="getItineraryBtn"
+                            class="btn-primary">
+                        Get Itinerary Suggestion ✨
+                    </button>
+                    <div id="loadingSpinner" class="spinner hidden mt-4"></div>
+                </div>
+                <div id="itineraryOutput" class="mt-4 p-4 bg-white rounded-md border border-gray-200 shadow-md hidden">
+                    <!-- AI-generated itinerary will be displayed here -->
+                </div>
+            `;
+            cityInfoDisplay.classList.remove('hidden');
+
+            // Attach event listener to the newly created button
+            document.getElementById('getItineraryBtn').addEventListener('click', () => getItinerarySuggestion(selectedCityName));
+            itineraryOutput.classList.add('hidden'); // Ensure itinerary output is hidden on new city selection
+            itineraryOutput.innerHTML = ''; // Clear existing itinerary when a new city is selected
+        }
+
+        // Helper for exponential backoff during API calls
+        async function fetchWithExponentialBackoff(url, options, retries = 3, delay = 1000) {
+            try {
+                const response = await fetch(url, options);
+                if (!response.ok) {
+                    if (response.status === 429 && retries > 0) { // Too Many Requests
+                        await new Promise(res => setTimeout(res, delay));
+                        return fetchWithExponentialBackoff(url, options, retries - 1, delay * 2);
+                    }
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return await response.json();
+            } catch (error) {
+                console.error("Fetch failed after retries:", error);
+                throw error;
+            }
+        }
+
+        // Function to call Gemini API for itinerary
+        async function getItinerarySuggestion(cityName) {
+            const cityInfo = cityData[cityName];
+            if (!cityInfo) {
+                document.getElementById('itineraryOutput').innerHTML = '<p class="text-red-600">Could not find itinerary information for this city.</p>';
+                document.getElementById('itineraryOutput').classList.remove('hidden');
+                return;
+            }
+
+            const itineraryOutputDiv = document.getElementById('itineraryOutput');
+            const loadingSpinner = document.getElementById('loadingSpinner');
+            const getItineraryBtn = document.getElementById('getItineraryBtn');
+
+            itineraryOutputDiv.innerHTML = ''; // Clear previous itinerary
+            itineraryOutputDiv.classList.add('hidden'); // Hide output until content is ready
+            loadingSpinner.classList.remove('hidden'); // Show loading spinner
+            getItineraryBtn.classList.add('opacity-50', 'cursor-not-allowed'); // Dim button and disable clicks
+            getItineraryBtn.disabled = true;
+
+            const prompt = `Generate a concise, appealing 1-day itinerary for a tourist visiting ${cityName} during the World Cup. Focus on experiencing the city's unique culture, a good food experience (mentioning its reputation: ${cityInfo.foodScene}), and a lively evening (mentioning its nightlife: ${cityInfo.nightlife}). Incorporate some of these top attractions: ${cityInfo.topAttractions.join(', ')}. Keep it to 3-4 paragraphs, starting with a friendly opening like "Here's a suggested 1-day itinerary for your visit to ${cityName}:".`;
+
+            let chatHistory = [];
+            chatHistory.push({ role: "user", parts: [{ text: prompt }] });
+            const payload = { contents: chatHistory };
+            const apiKey = ""; // Canvas will provide this API key at runtime
+
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+
+            try {
+                const result = await fetchWithExponentialBackoff(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (result.candidates && result.candidates.length > 0 &&
+                    result.candidates[0].content && result.candidates[0].content.parts &&
+                    result.candidates[0].content.parts.length > 0) {
+                    const text = result.candidates[0].content.parts[0].text;
+                    // Replace newlines with <br> for proper rendering in HTML paragraphs
+                    const formattedText = text.replace(/\n/g, '<br>');
+                    itineraryOutputDiv.innerHTML = `<h3 class="text-xl font-semibold text-gray-800 mt-4 mb-2">Suggested Itinerary ✨</h3><p class="text-gray-700 whitespace-pre-wrap">${formattedText}</p>`;
+                    itineraryOutputDiv.classList.remove('hidden'); // Show output
+                } else {
+                    itineraryOutputDiv.innerHTML = '<p class="text-red-600">Failed to generate itinerary. Please try again.</p>';
+                    itineraryOutputDiv.classList.remove('hidden');
+                    console.error('Gemini API returned unexpected response structure:', result);
+                }
+            } catch (error) {
+                itineraryOutputDiv.innerHTML = '<p class="text-red-600">Error generating itinerary: ' + error.message + '</p>';
+                itineraryOutputDiv.classList.remove('hidden');
+                console.error('Error calling Gemini API:', error);
+            } finally {
+                loadingSpinner.classList.add('hidden'); // Hide loading spinner
+                getItineraryBtn.classList.remove('opacity-50', 'cursor-not-allowed'); // Restore button
+                getItineraryBtn.disabled = false;
+            }
+        }
+
+
+        // Event listeners
+        document.getElementById('applyFilter').addEventListener('click', applyFilters);
+        document.getElementById('selectAllRounds').addEventListener('click', () => toggleAllRounds(true));
+        document.getElementById('deselectAllRounds').addEventListener('click', () => toggleAllRounds(false));
+        document.getElementById('clearStadiumSelection').addEventListener('click', clearStadiumSelection);
+
+        // City Guides event listener
+        document.getElementById('citySelect').addEventListener('change', displayCityInfo);
+
+
+        // Initial setup and render functions
+        populateRoundFilter();
+        setTournamentDateHelper(); // Set the helper text on load
+        applyFilters(); // Initial render of markers with all matches and rounds
+
+        // Set initial active tab to 'map-content'
+        showTab('map-content');
+        populateCitySelect(); // Populate the city dropdown on load
+    </script>
+</body>
+</html>
